@@ -1,0 +1,311 @@
+
+import React, { useState, useEffect } from "react";
+import { Document } from "@/entities/Document";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { FileText, Plus, Clock, CheckCircle, AlertCircle, Eye, Trash2 } from "lucide-react";
+import { format } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+export default function DocumentsPage() {
+    const [documents, setDocuments] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [confirmBulkOpen, setConfirmBulkOpen] = useState(false);
+    const [confirmSingleOpen, setConfirmSingleOpen] = useState(false);
+    const [singleTargetId, setSingleTargetId] = useState(null);
+
+    useEffect(() => {
+        loadDocuments();
+    }, []);
+
+    const loadDocuments = async () => {
+        setIsLoading(true);
+        const docs = await Document.list('-created_date');
+        setDocuments(docs);
+        setIsLoading(false);
+        setSelectedIds(new Set()); // clear selection after reload
+    };
+
+    // Selection helpers
+    const toggleSelect = (id) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const isSelected = (id) => selectedIds.has(id);
+    const allSelected = documents.length > 0 && selectedIds.size === documents.length;
+    const someSelected = selectedIds.size > 0 && !allSelected;
+    const clearSelection = () => setSelectedIds(new Set());
+    const toggleSelectAll = () => {
+        if (allSelected) {
+            clearSelection();
+        } else {
+            setSelectedIds(new Set(documents.map(d => d.id)));
+        }
+    };
+
+    // Delete actions
+    const deleteSelected = async () => {
+        if (selectedIds.size === 0) return;
+        setIsDeleting(true);
+        await Promise.all(Array.from(selectedIds).map(id => Document.delete(id)));
+        setIsDeleting(false);
+        setConfirmBulkOpen(false);
+        await loadDocuments();
+    };
+
+    const askDeleteSingle = (id) => {
+        setSingleTargetId(id);
+        setConfirmSingleOpen(true);
+    };
+
+    const deleteSingle = async () => {
+        if (!singleTargetId) return;
+        setIsDeleting(true);
+        await Document.delete(singleTargetId);
+        setIsDeleting(false);
+        setConfirmSingleOpen(false);
+        setSingleTargetId(null);
+        await loadDocuments();
+    };
+
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'completed':
+                return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+            case 'processing':
+                return <Clock className="w-4 h-4 text-amber-500 animate-pulse" />;
+            case 'error':
+                return <AlertCircle className="w-4 h-4 text-red-500" />;
+            default:
+                return <Clock className="w-4 h-4 text-slate-400" />;
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'completed':
+                return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            case 'processing':
+                return 'bg-amber-50 text-amber-700 border-amber-200';
+            case 'error':
+                return 'bg-red-50 text-red-700 border-red-200';
+            default:
+                return 'bg-slate-50 text-slate-700 border-slate-200';
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+            <div className="max-w-7xl mx-auto">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-slate-800 mb-2">Financial Documents</h1>
+                        <p className="text-slate-600">Upload and analyze financial documents for key market themes</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {/* Bulk selection controls */}
+                        {!isLoading && documents.length > 0 && (
+                            <div className="flex items-center gap-2 bg-white/60 border border-slate-200/60 rounded-lg px-3 py-2">
+                                <Checkbox
+                                    checked={allSelected || someSelected}
+                                    onCheckedChange={toggleSelectAll}
+                                    aria-label="Select all documents"
+                                />
+                                <span className="text-sm text-slate-700">
+                                    {allSelected ? "All selected" : someSelected ? `${selectedIds.size} selected` : "Select"}
+                                </span>
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    disabled={selectedIds.size === 0 || isDeleting}
+                                    onClick={() => setConfirmBulkOpen(true)}
+                                    className="gap-2"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete
+                                </Button>
+                            </div>
+                        )}
+
+                        <Link to={createPageUrl("Upload")}>
+                            <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Upload Document
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+
+                {isLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Array(6).fill(0).map((_, i) => (
+                            <Card key={i} className="bg-white/60 backdrop-blur-sm border-slate-200/60">
+                                <CardHeader className="animate-pulse">
+                                    <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                                    <div className="h-3 bg-slate-100 rounded w-1/2 mt-2"></div>
+                                </CardHeader>
+                                <CardContent className="animate-pulse">
+                                    <div className="h-3 bg-slate-100 rounded w-full mb-2"></div>
+                                    <div className="h-3 bg-slate-100 rounded w-2/3"></div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                ) : documents.length === 0 ? (
+                    <Card className="bg-white/60 backdrop-blur-sm border-slate-200/60 text-center py-12">
+                        <CardContent className="space-y-4">
+                            <div className="w-16 h-16 mx-auto bg-blue-50 rounded-full flex items-center justify-center">
+                                <FileText className="w-8 h-8 text-blue-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-slate-700 mb-2">No Documents Yet</h3>
+                                <p className="text-slate-500 mb-4">Upload your first financial document to start analyzing themes</p>
+                                <Link to={createPageUrl("Upload")}>
+                                    <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800">
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Upload First Document
+                                    </Button>
+                                </Link>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {documents.map((doc) => (
+                            <Card key={doc.id} className={`bg-white/60 backdrop-blur-sm border-slate-200/60 hover:shadow-xl transition-all duration-300 group ${isSelected(doc.id) ? "ring-2 ring-blue-300" : ""}`}>
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Checkbox
+                                                checked={isSelected(doc.id)}
+                                                onCheckedChange={() => toggleSelect(doc.id)}
+                                                aria-label={`Select ${doc.title}`}
+                                            />
+                                            <div className="flex items-center gap-2">
+                                                <FileText className="w-5 h-5 text-blue-500" />
+                                                <CardTitle className="text-slate-800 text-base line-clamp-2">
+                                                    {doc.title}
+                                                </CardTitle>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {getStatusIcon(doc.processing_status)}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-slate-400 hover:text-red-600"
+                                                onClick={() => askDeleteSingle(doc.id)}
+                                                title="Delete document"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-slate-500">
+                                        {format(new Date(doc.created_date), 'MMM d, yyyy • h:mm a')}
+                                    </p>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className={`text-xs border ${getStatusColor(doc.processing_status)}`}>
+                                            {doc.processing_status?.replace('_', ' ')}
+                                        </Badge>
+                                        {doc.themes && (
+                                            <Badge variant="outline" className="text-xs">
+                                                {doc.themes.length} themes
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    
+                                    {doc.processing_status === 'completed' && (
+                                        <Link to={createPageUrl(`Analyze?id=${doc.id}`)}>
+                                            <Button 
+                                                variant="outline" 
+                                                className="w-full group-hover:bg-blue-50 group-hover:border-blue-200 transition-all duration-200"
+                                            >
+                                                <Eye className="w-4 h-4 mr-2" />
+                                                Analyze Themes
+                                            </Button>
+                                        </Link>
+                                    )}
+                                    
+                                    {doc.processing_status === 'processing' && (
+                                        <div className="text-center text-sm text-amber-600 py-2">
+                                            <Clock className="w-4 h-4 inline mr-1 animate-pulse" />
+                                            Processing document...
+                                        </div>
+                                    )}
+                                    
+                                    {doc.processing_status === 'error' && (
+                                        <div className="text-center text-sm text-red-600 py-2">
+                                            <AlertCircle className="w-4 h-4 inline mr-1" />
+                                            Processing failed
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+
+                {/* Bulk delete confirmation */}
+                <AlertDialog open={confirmBulkOpen} onOpenChange={setConfirmBulkOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete selected documents?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently delete {selectedIds.size} document{selectedIds.size === 1 ? "" : "s"}. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={deleteSelected} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
+                {/* Single delete confirmation */}
+                <AlertDialog open={confirmSingleOpen} onOpenChange={setConfirmSingleOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this document?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently delete the selected document. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={deleteSingle} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+        </div>
+    );
+}
