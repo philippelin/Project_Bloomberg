@@ -1,0 +1,81 @@
+{
+  "name": "Document",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Document title or filename"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL to the uploaded PDF file"
+    },
+    "content": {
+      "type": "string",
+      "description": "Extracted text content from PDF"
+    },
+    "themes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "theme_name": {
+            "type": "string"
+          },
+          "theme_description": {
+            "type": "string"
+          },
+          "sub_themes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "passages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      },
+                      "page_number": {
+                        "type": "number"
+                      },
+                      "relevance_score": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Hierarchical financial themes with sub-themes and related passages"
+    },
+    "processing_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processing",
+        "completed",
+        "error"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "title",
+    "file_url"
+  ]
+}

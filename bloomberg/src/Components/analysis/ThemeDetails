@@ -1,0 +1,71 @@
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Target, TrendingUp, Search } from "lucide-react";
+
+export default function ThemeDetails({ theme }) {
+    if (!theme) return null;
+
+    const getRelevanceColor = (score) => {
+        if (score >= 0.8) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        if (score >= 0.6) return 'bg-blue-100 text-blue-800 border-blue-200';
+        if (score >= 0.4) return 'bg-amber-100 text-amber-800 border-amber-200';
+        return 'bg-slate-100 text-slate-800 border-slate-200';
+    };
+
+    const ThemeIcon = theme.isCustom ? Search : Target;
+
+    return (
+        <Card className="border-0 shadow-none bg-transparent">
+            <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                    <ThemeIcon className={`w-4 h-4 ${theme.isCustom ? 'text-purple-600' : 'text-blue-600'}`} />
+                    {theme.name}
+                    <Badge variant="outline" className="ml-auto text-xs">
+                        {theme.passages?.length || 0} passages
+                    </Badge>
+                    {theme.isCustom && (
+                        <Badge className="text-xs bg-purple-100 text-purple-800 border-purple-200">
+                            Custom Search
+                        </Badge>
+                    )}
+                </CardTitle>
+                <p className="text-sm text-slate-600">{theme.description}</p>
+            </CardHeader>
+            
+            <CardContent className="pt-0">
+                <ScrollArea className="h-32">
+                    <div className="space-y-2">
+                        {theme.passages?.map((passage, index) => (
+                            <div
+                                key={index}
+                                className="p-3 bg-white/60 backdrop-blur-sm rounded-lg border border-slate-200/60 hover:shadow-sm transition-shadow"
+                            >
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Badge className={`text-xs border ${getRelevanceColor(passage.relevance_score)}`}>
+                                        <TrendingUp className="w-3 h-3 mr-1" />
+                                        {Math.round(passage.relevance_score * 100)}% relevant
+                                    </Badge>
+                                    {passage.position_percentage && (
+                                        <Badge variant="outline" className="text-xs">
+                                            ~{Math.round(passage.position_percentage)}% through document
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="text-sm text-slate-700 leading-relaxed">
+                                    "{passage.text.substring(0, 200)}
+                                    {passage.text.length > 200 ? '...' : '"'}
+                                </p>
+                            </div>
+                        )) || (
+                            <p className="text-sm text-slate-500 text-center py-4">
+                                No passages found for this theme
+                            </p>
+                        )}
+                    </div>
+                </ScrollArea>
+            </CardContent>
+        </Card>
+    );
+}
